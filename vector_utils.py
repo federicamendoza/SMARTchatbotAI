@@ -24,7 +24,7 @@ def fetch_courses_dict():
         
         # Fetch courses with stato_id != 4
         sql_query = """
-        SELECT titolo, descrizione, requisiti, costo, testocosto, ore
+        SELECT titolo, descrizione, requisiti, costo, testocosto, ore, sede
         FROM corsi 
         WHERE stato_id != 4
         ORDER BY titolo

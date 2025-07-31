@@ -273,7 +273,7 @@ def search_vector_database(user_input):
                 # 1. Length bonus (longer words are usually more specific)
                 importance_score += len(word) * 2
                 
-                # 2. Rarity bonus (words that appear in fewer courses are more specific)
+                # 2.Rarity bonus (words that appear in fewer courses are more specific)
                 word_frequency = sum(1 for title in all_course_titles if word in title.lower())
                 if word_frequency > 0:
                     rarity_score = max(1, 50 - word_frequency)  # Higher score for rarer words
