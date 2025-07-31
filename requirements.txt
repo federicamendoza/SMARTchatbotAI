@@ -1,0 +1,13 @@
+langchain
+openai
+mysql-connector-python
+langdetect
+streamlit
+tqdm
+scikit-learn
+sentence-transformers
+pandas
+langchain-ollama
+langchain-experimental
+langchain-community
+faiss-cpu 
