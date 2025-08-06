@@ -136,7 +136,16 @@ COMPANY_INFO = {
         "certifications": "Siamo certificati ISO 9001:2015 n. 34930/17/S rilasciata il 17/03/2017 e accreditati come agenzia formativa presso la Regione Piemonte con codice operatore D65506.",
         "accreditation": "Siamo un'agenzia formativa accreditata presso la Regione Piemonte con codice operatore D65506 e numero certificazione 1132/001.",
         "example_courses": "Offriamo corsi come grafica integrata e AI (300 ore), conduttore impianti termici (90 ore), bonifica amianto (36 ore), primo soccorso per aziende e molti altri.",
-        "delivery_modes": "I nostri corsi sono erogati in presenza, FAD sincrona e FAD asincrona, con supporto per iscrizione online e area riservata."
+        "delivery_modes": "I nostri corsi sono erogati in presenza, FAD sincrona e FAD asincrona, con supporto per iscrizione online e area riservata.",
+        #TO DO: how to reach office, EBAP refund, payment methods, missing lectures
+        "how_to_reach_office": (
+            "Ci puoi raggiungere con i seguenti mezzi pubblici: 2, 17, 56, 58, 62, 66, 71. In auto ci può invece raggiungere:\n"
+            "- Arrivando dalla tangenziale Sud di Torino, prendere l’uscita di c.so Orbassano, girare a sinistra in piazza Pitagora e proseguire dritti in c.so Siracusa. L’istituto si troverà a sinistra, prima del Parco Ruffini.\n"
+            "- Arrivando dalla tangenziale Nord di Torino, prendere l’uscita di c.so Allamano, percorrere interamente corso Allamano, proseguire in c.so Sebastopoli e girare a sinistra in c.so Siracusa. L’istituto si troverà a sinistra, prima del Parco Ruffini. In alternativa prendere l’uscita di c.so Regina Margherita, girare a sinistra in c.so Lecce, proseguire in c.so Trapani, proseguire in c.so Siracusa. L’istituto si troverà a destra, sul controviale, subito dopo il Parco Ruffini."
+        ),
+        "ebap_refund": "I rimborsi EBAP (Ente Bilaterale Artigianato Piemontese) sono prestazioni economiche erogate ai lavoratori e alle imprese artigiane per sostenere diverse esigenze, tra cui i corsi di formazione. La lista dei corsi rimborsabili è in continuo aggiornamento, per consultazione e maggiori informazioni clicca [qui](https://www.ebap.piemonte.it/prestazioni-imprese2024/). NOTA BENE: fanno eccezione i corsi sulla sicurezza, che sono per legge non rimborsabili.",
+        #"payment_methods": "Accettiamo pagamenti tramite bonifico bancario, PayPal e carte di credito. Per maggiori dettagli, contattaci.",
+        "missing_lectures": "Non è possibile recuperare le lezioni perse. Per il rilascio dei certificati dei corsi di sicurezza è necessaria una frequenza del 90%% della durata del corso."  
     }
 }
 
