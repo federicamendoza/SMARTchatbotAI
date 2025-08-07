@@ -7,41 +7,44 @@ from vector_utils import CourseVectorStore
 from company_vector_store import CompanyVectorStore
 import pandas as pd
 import re
+import time
 
 # --- Enhanced RAG-First Chat Function ---
 def enhanced_chat(user_input, llm=None, lang=None):
-   
+    start_time = time.time()
+
     # Use provided language or fallback to detection
     if lang is None:
         lang = detect_language(user_input)
     
-    # Step 1: Let LLM decide what to do with the query
     llm_decision = get_llm_decision(user_input, lang, llm)
     print(f"[LLM DECISION] {llm_decision}")
     
-    # Step 2: Execute based on LLM decision
     if llm_decision == "general_conversation":
-        return get_general_response(user_input, lang), None
+        response, course_list = get_general_response(user_input, lang), None
     
     elif llm_decision == "company_info":
-        return search_company_information(user_input, lang, llm), None
+        response, course_list = search_company_information(user_input, lang, llm), None
     
     elif llm_decision == "course_search":
-        # Search database for courses using vector search only
         results = search_vector_database(user_input)
         
         if not results:
-            return NO_RESULT[lang], None
-        
-        print(f"[RAG-FIRST] Found {len(results)} relevant results in database")
-        
-        # Let LLM format the response (course listing or single course)
-        response = format_course_response_with_llm(results, lang, llm, user_input)
-        return response, results if len(results) > 1 else None
+            response, course_list = NO_RESULT[lang], None
+        else:
+            print(f"[RAG-FIRST] Found {len(results)} relevant results in database")
+            response = format_course_response_with_llm(results, lang, llm, user_input)
+            course_list = results if len(results) > 1 else None
     
     else:
-        # Default fallback
-        return get_general_response(user_input, lang), None
+        response, course_list = get_general_response(user_input, lang), None
+
+    # ⏱️ --- FINE TIMER E RESTITUZIONE ---
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    
+    # Ora restituiamo tre valori: la risposta, la lista dei corsi e il tempo impiegato
+    return response, course_list, elapsed_time
 
 def get_llm_decision(user_input, lang, llm):
     
@@ -53,7 +56,7 @@ Language: {lang}
 
 Available options:
 1. "general_conversation" - For greetings, thanks, identity questions, help requests
-2. "company_info" - For questions about Smart2t company, location, services, certifications, contact info, phone number, email, address, headquarters, sede, telefono, contatti, or any company-related information
+2. "company_info" - For questions about Smart2t company, location, services, certifications, contact info, phone number, email, address, headquarters, how to reach the office, EBAP refunds, attendance policy, or any company-related information
 3. "course_search" - For questions about training courses, education, specific courses, software, skills, or any learning request
 
 CRITICAL CLASSIFICATION RULES:
@@ -97,6 +100,13 @@ Examples:
 - "where are you located" → company_info
 - "contact information" → company_info
 - "company address" → company_info
+- "Cosa sono i rimborsi EBAP?" → company_info
+- "ebap" → company_info
+- "rimborsi" → company_info
+- "Come posso raggiungere la sede?" → company_info
+- "Cosa succede se perdo una lezione?" → company_info
+- "quante ore di assenza" → company_info
+- "Come posso recuperare le lezioni perse?" → company_info
 
 Respond with ONLY the decision (general_conversation, company_info, or course_search):
 """
@@ -468,12 +478,14 @@ def format_company_response_with_llm(results, lang, llm, user_input):
     
     # Use LLM to format the response
     prompt = f"""
-You are a helpful assistant for Smart2t. The user asked: "{user_input}"
+You are a helpful and precise assistant for Smart2t. Your tone is always gentle and professional.
+Your main goal is to answer the user's question using ONLY the "Provided Information" below.
 
+User's Question: "{user_input}"
 IMPORTANT RULES:
 1. Respond ONLY in {lang} language. DO NOT use any other language.
 2. Use ONLY the company information provided below
-3. Be friendly, helpful and conversational
+3. Do not use any external knowledge or make up details.
 4. Do not invent any information not in the data
 5. If the user asks about location or address, ALWAYS copy and paste the address exactly as provided below. Do NOT say '[inserisci l'indirizzo esatto]'.
 6. If the user asks about contact info, provide the phone and email
@@ -509,14 +521,24 @@ If the user asks for the address, always copy the address exactly as provided ab
 # --- Legacy chat function for backward compatibility ---
 def chat(user_input, llm=None):
     """Legacy chat function - now uses enhanced RAG-first approach with vector search only"""
-    return enhanced_chat(user_input, llm)
+    response, course_list, _ = enhanced_chat(user_input, llm)
+    
+    # Restituisce solo i due valori originali, ignorando il tempo
+    return response, course_list
 
 if __name__ == "__main__":
     print("Enhanced RAG-First mode with vector search only.")
     llm = ChatOllama(model="llama3", base_url="http://localhost:11434")
     while True:
         user_input = input("You: ")
-        response, course_list = enhanced_chat(user_input, llm=llm)
+        response, course_list, response_time = enhanced_chat(user_input, llm=llm)
+        
         print("Bot:", response)
+        
+        # Stampa il tempo di risposta
+        print(f"\n[⏱️ Tempo di risposta: {response_time:.2f} secondi]")
+        
         if course_list:
             print("Course List:", course_list)
+        
+        print("-" * 50) # Aggiunge un separatore per leggibilità

@@ -289,4 +289,26 @@ def search_company_info(query):
             "details": COMPANY_INFO['example_courses']
         })
     
+    # <<< INIZIO MODIFICHE >>>
+    if any(word in query_lower for word in ["raggiungere", "raggiungerci", "reach", "arrivare", "mezzi", "bus", "car", "transportation", "trasporti" "auto", "ufficio", "office", "company"]):
+        results.append({
+            "type": "how_to_reach",
+            "content": f"Come raggiungerci: {COMPANY_INFO['faq']['how_to_reach_office']}",
+            "details": COMPANY_INFO['faq']['how_to_reach_office']
+        })
+
+    if any(word in query_lower for word in ["ebap", "rimborsi", "rimborso", "refund", "prestazioni", "rimborsabili", "refundable"]):
+        results.append({
+            "type": "ebap_refund",
+            "content": f"Rimborsi EBAP: {COMPANY_INFO['faq']['ebap_refund']}",
+            "details": COMPANY_INFO['faq']['ebap_refund']
+        })
+
+    if any(word in query_lower for word in ["assenza", "assenze", "lezioni perse", "recuperare", "missing lectures", "missed lectures", "recover", "absentees", "absences", "absent"]):
+        results.append({
+            "type": "missing_lectures",
+            "content": f"Lezioni perse: {COMPANY_INFO['faq']['missing_lectures']}",
+            "details": COMPANY_INFO['faq']['missing_lectures']
+        })
+    # <<< FINE MODIFICHE >>>
     return results 

@@ -494,6 +494,7 @@ for i, msg in enumerate(st.session_state.chat_history[-10:]):
 # Chat input
 user_input = st.chat_input("Chiedi informazioni sui corsi (IT/EN):" if st.session_state.last_lang == "it" else "Ask about courses (IT/EN):")
 if user_input:
+    response_time = None
     st.session_state.chat_history.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.markdown(user_input)
@@ -592,8 +593,10 @@ if user_input:
                 with st.spinner("🔍 Cercando informazioni..." if lang == "it" else "🔍 Searching for information..."):
                     try:
                         # Use enhanced RAG-first approach
-                        response, course_list = enhanced_chat(user_input, llm=st.session_state.llm, lang=lang)
+                        response, course_list, response_time = enhanced_chat(user_input, llm=st.session_state.llm, lang=lang)
                         
+                        st.session_state.last_response_time = response_time 
+
                         # Check if response contains a course list (multiple courses found)
                         if course_list and len(course_list) > 1:
                             st.session_state.waiting_for_selection = True
@@ -616,7 +619,7 @@ if user_input:
             with st.spinner("🔍 Cercando informazioni..." if lang == "it" else "🔍 Searching for information..."):
                 try:
                     # Use enhanced RAG-first approach
-                    response, course_list = enhanced_chat(user_input, llm=st.session_state.llm, lang=lang)
+                    response, course_list, response_time = enhanced_chat(user_input, llm=st.session_state.llm, lang=lang)
                     
                     # Check if response contains a course list (multiple courses found)
                     if course_list and len(course_list) > 1:
@@ -644,8 +647,17 @@ if user_input:
             displayed += char
             placeholder.markdown(displayed)
             time.sleep(typing_speed)
-    
+        # ✅ Visualizza il tempo di risposta che abbiamo salvato
+        if "last_response_time" in st.session_state and st.session_state.last_response_time is not None:
+            st.caption(f"⏱️ Tempo di risposta: {st.session_state.last_response_time:.2f} secondi")
+            st.session_state.last_response_time = None # Pulisce per la prossima risposta
+
     st.session_state.chat_history.append({"role": "assistant", "content": response})
+
+    # Controlla se la variabile response_time è stata impostata e la stampa
+    if response_time is not None:
+        st.caption(f"⏱️ Tempo di risposta: {response_time:.2f} secondi")
+        
     speak_text_button(response, lang=st.session_state.last_lang)
     
     # Add course action buttons if a course is selected
