@@ -488,6 +488,10 @@ if not st.session_state.chat_history and st.session_state.language_selected:
 for i, msg in enumerate(st.session_state.chat_history[-10:]):
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
+        # ✅ Se il messaggio ha un tempo salvato, lo visualizza qui
+        if msg.get("time") is not None:
+            st.caption(f"⏱️ Tempo di risposta: {msg['time']:.2f} secondi")
+        
         if msg["role"] == "assistant":
             speak_text_button(msg["content"], lang=st.session_state.last_lang, key=f"tts_{i}")
 
@@ -557,9 +561,13 @@ if user_input:
             
             if 0 <= selection < len(st.session_state.course_list):
                 selected_course = st.session_state.course_list[selection]
+                start_time = time.time()
                 print(f"[DEBUG] Selected course index: {selection}, Course: {selected_course.get('titolo', 'No title')}")
                 response = format_course(selected_course, selection_lang, llm=st.session_state.llm, user_query=user_input)
                 print(f"[DEBUG] Response language: {selection_lang}, Response preview: {response[:100]}...")
+                end_time = time.time()
+                response_time = end_time - start_time
+                st.session_state.chat_history.append({"role": "assistant", "content": response, "time": response_time})
                 st.session_state.waiting_for_selection = False
                 st.session_state.course_list = []
                 # Store the selected course for follow-up questions
@@ -567,6 +575,7 @@ if user_input:
                 # Set follow-up mode for the selected course
                 st.session_state.waiting_for_follow_up = True
                 st.session_state.follow_up_prompt = "Ask me anything about this course (requirements, cost, duration, etc.)" if selection_lang == "en" else "Chiedimi qualsiasi cosa su questo corso (requisiti, costo, durata, ecc.)"
+                st.rerun()  # Rerun to update the chat with the selected course response
             else:
                 response = f"Numero non valido. Inserisci un numero tra 1 e {len(st.session_state.course_list)}." if selection_lang == "it" else f"Invalid number. Please enter a number between 1 and {len(st.session_state.course_list)}."
         except ValueError:
@@ -639,6 +648,7 @@ if user_input:
                     st.session_state.waiting_for_follow_up = False
                     st.session_state.follow_up_prompt = None
     
+    # 1. Visualizza la risposta del bot con l'effetto "macchina da scrivere"
     with st.chat_message("assistant"):
         placeholder = st.empty()
         typing_speed = 0.01
@@ -647,19 +657,18 @@ if user_input:
             displayed += char
             placeholder.markdown(displayed)
             time.sleep(typing_speed)
-        # ✅ Visualizza il tempo di risposta che abbiamo salvato
-        if "last_response_time" in st.session_state and st.session_state.last_response_time is not None:
-            st.caption(f"⏱️ Tempo di risposta: {st.session_state.last_response_time:.2f} secondi")
-            st.session_state.last_response_time = None # Pulisce per la prossima risposta
 
+    # 2. Aggiunge la risposta alla cronologia della chat
     st.session_state.chat_history.append({"role": "assistant", "content": response})
 
-    # Controlla se la variabile response_time è stata impostata e la stampa
+    # 3. Controlla e stampa il tempo di risposta (se disponibile)
+    #    Questa didascalia apparirà sotto la "bolla" di chat per una migliore leggibilità.
     if response_time is not None:
         st.caption(f"⏱️ Tempo di risposta: {response_time:.2f} secondi")
-        
-    speak_text_button(response, lang=st.session_state.last_lang)
     
+    # 4. Mostra il bottone "Speak"
+    speak_text_button(response, lang=st.session_state.last_lang)
+
     # Add course action buttons if a course is selected
     if st.session_state.current_course:
         st.markdown("---")
