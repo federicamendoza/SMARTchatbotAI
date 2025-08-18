@@ -1,39 +1,41 @@
+from vector_utils import CourseVectorStore
 import os
-from company_vector_store import CompanyVectorStore
 
-# Nomi dei file dell'indice da rimuovere
-INDEX_FILE = "company_index.bin"
-TEXTS_FILE = "company_texts.pkl"
-
-def rebuild():
-    """
-    Forza la ricostruzione del vector store cancellando i file vecchi
-    e creando una nuova istanza della classe.
-    """
-    print("🚀 Inizio della ricostruzione del Company Vector Store...")
-
-    # Step 1: Cancella i file dell'indice esistenti, se presenti
-    if os.path.exists(INDEX_FILE):
-        os.remove(INDEX_FILE)
-        print(f"🗑️  File '{INDEX_FILE}' cancellato.")
-        
-    if os.path.exists(TEXTS_FILE):
-        os.remove(TEXTS_FILE)
-        print(f"🗑️  File '{TEXTS_FILE}' cancellato.")
-
-    # Step 2: Crea una nuova istanza per forzare la ricostruzione
-    # La logica interna di CompanyVectorStore si occuperà di creare il nuovo indice
-    # perché non troverà i file esistenti.
-    print("\n✨ Creazione del nuovo indice in corso...")
+def manual_rebuild():
+    print("🔄 Starting manual vector index rebuild...")
     
-    try:
-        # Questa riga attiverà il metodo _create_index()
-        store = CompanyVectorStore()
-        print("\n✅ Successo! Il Company Vector Store è stato ricostruito correttamente.")
-    except Exception as e:
-        print(f"\n❌ ERRORE durante la ricostruzione: {e}")
-        print("Verifica che tutte le dipendenze (es. sentence-transformers) siano installate.")
-
+    # Check if index files exist
+    if os.path.exists("faiss_index.bin"):
+        print("📁 Found existing faiss_index.bin - will be replaced")
+    else:
+        print("📁 No existing faiss_index.bin found")
+        
+    if os.path.exists("courses.pkl"):
+        print("📁 Found existing courses.pkl - will be replaced")
+    else:
+        print("📁 No existing courses.pkl found")
+    
+    print("\n🔄 Force rebuilding vector index...")
+    
+    # Force rebuild by setting force_rebuild=True
+    store = CourseVectorStore(force_rebuild=True)
+    
+    print(f"✅ Vector index rebuilt successfully!")
+    print(f"📊 Total courses indexed: {len(store.courses)}")
+    
+    # Test the rebuilt index
+    print("\n🧪 Testing rebuilt index...")
+    test_results = store.semantic_query("aggiornamento", top_k=2)
+    
+    print("📋 Sample results with cleaned testocosto:")
+    for i, course in enumerate(test_results, 1):
+        title = course.get('titolo', 'No title')
+        testocosto = course.get('testocosto', 'No cost info')
+        print(f"  {i}. {title}")
+        print(f"     Cost: {testocosto}")
+    
+    print("\n🎉 Manual rebuild completed successfully!")
+    print("💡 You can now restart your Streamlit app to use the updated index.")
 
 if __name__ == "__main__":
-    rebuild()
+    manual_rebuild()

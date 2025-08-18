@@ -37,44 +37,44 @@ def concise_summarize_course(fields, user_lang, llm=None, greet=True, user_messa
     if is_selection:
         # Provide general course summary for course selection
         prompt = f"""
-IMPORTANT: Use ONLY the information provided below. DO NOT invent or add anything that is not present in the data.
-Respond ONLY in {user_lang}. Do NOT use any other language.
-Provide a comprehensive summary of this course including all available information.
+        IMPORTANT: Use ONLY the information provided below. DO NOT invent or add anything that is not present in the data.
+        Respond ONLY in {user_lang}. Do NOT use any other language.
+        Provide a comprehensive summary of this course including all available information.
 
-IMPORTANT FIELD MAPPINGS:
-- "Ore" = Duration of the course in hours
-- "Costo" = Cost/Price of the course
-- "Requisiti" = Requirements/Prerequisites
-- "Descrizione" = Course description
-- "Sede" = Location/Venue
+        IMPORTANT FIELD MAPPINGS:
+        - "Ore" = Duration of the course in hours
+        - "TestoCosto" = Base Cost/Price of the course + percentage of tax (format: base cost + IVA)
+        - "Requisiti" = Requirements/Prerequisites
+        - "Descrizione" = Course description
+        - "Sede" = Location/Venue
 
-Course information (use ONLY these data):
-{field_text}
+        Course information (use ONLY these data):
+        {field_text}
 
-Provide a complete course summary in {user_lang} (strictly based on the provided data):
-"""
+        Provide a complete course summary in {user_lang} (strictly based on the provided data):
+        """
     else:
         # Answer specific user question
         prompt = f"""
-IMPORTANT: Use ONLY the information provided below. DO NOT invent or add anything that is not present in the data.
-Respond ONLY in {user_lang}. Do NOT use any other language.
-Be friendly and conversational, but do NOT add generic introductions or conclusions.
+        IMPORTANT: Use ONLY the information provided below. DO NOT invent or add anything that is not present in the data.
+        Respond ONLY in {user_lang}. Do NOT use any other language.
+        Be friendly and conversational, but do NOT add generic introductions or conclusions.
 
-IMPORTANT FIELD MAPPINGS:
-- "Ore" = Duration of the course in hours
-- "Costo" = Cost/Price of the course  
-- "Requisiti" = Requirements/Prerequisites
-- "Descrizione" = Course description
-- "Sede" = Location/Venue
+        IMPORTANT FIELD MAPPINGS:
+        - "Ore" = Duration of the course in hours
+        - "TestoCosto" = Base Cost/Price of the course +  + percentage of tax (format: base cost + IVA)
+        - "Requisiti" = Requirements/Prerequisites
+        - "Descrizione" = Course description
+        - "Sede" = Location/Venue
 
-Course information (use ONLY these data):
-{field_text}
+        Course information (use ONLY these data):
+        {field_text}
 
-User message: {user_message}
+        User message: {user_message}
 
-Your response in {user_lang} (strictly based on the provided data):
-"""
-    
+        Your response in {user_lang} (strictly based on the provided data):
+        """
+        
     try:
         result = llm.invoke(prompt)
         if hasattr(result, 'content'):
@@ -92,7 +92,7 @@ FIELD_KEYWORDS = {
         "requisiti", "requirements", "pre-requisiti", "pre request",
         "prerequisite", "pre requests", "prerequisites"
     ],
-    "costo": ["costo", "cost", "prezzo", "price"],
+    #"costo": ["costo", "cost", "prezzo", "price"],
     "testocosto": ["testocosto", "cost text", "price text"],
     "ore": ["ore", "hours", "durata", "duration"],
     "sede": ["sede", "address", "location", "luogo", "dove", "where", "place"]
@@ -115,23 +115,23 @@ def detect_requested_field(user_query):
                 return field
     return None
 
-GREETINGS = {
-    "en": ["hi", "hello", "hey", "good morning", "good afternoon", "good evening", "how are you"],
-    "it": ["ciao", "salve", "buongiorno", "buonasera", "ehi", "come stai"]
-}
+# GREETINGS = {
+#     "en": ["hi", "hello", "hey", "good morning", "good afternoon", "good evening", "how are you"],
+#     "it": ["ciao", "salve", "buongiorno", "buonasera", "ehi", "come stai"]
+# }
 
-def is_greeting(user_input, lang=None):
-    user_input = user_input.lower().strip()
-    for greet_list in GREETINGS.values():
-        for greet in greet_list:
-            if greet in user_input:
-                return True
-    return False
+# def is_greeting(user_input, lang=None):
+#     user_input = user_input.lower().strip()
+#     for greet_list in GREETINGS.values():
+#         for greet in greet_list:
+#             if greet in user_input:
+#                 return True
+#     return False
 
-FRIENDLY_GREETING = {
-    "en": "Hi there! 😊 I'm here to help you with any questions about our courses. How can I assist you today?",
-    "it": "Ciao! 😊 Sono qui per aiutarti con qualsiasi domanda sui nostri corsi. Come posso aiutarti oggi?"
-}
+# FRIENDLY_GREETING = {
+#     "en": "Hi there! 😊 I'm here to help you with any questions about our courses. How can I assist you today?",
+#     "it": "Ciao! 😊 Sono qui per aiutarti con qualsiasi domanda sui nostri corsi. Come posso aiutarti oggi?"
+# }
 
 def add_natural_newlines(text):
     import re
@@ -166,7 +166,6 @@ def format_course(course, lang, llm=None, user_query=None):
     fields = {
         "titolo": md(str(course.get("titolo", ""))),
         "requisiti": md(str(course.get("requisiti", ""))),
-        "costo": md(str(course.get("costo", ""))),
         "testocosto": md(str(course.get("testocosto", ""))),
         "ore": md(str(course.get("ore", ""))),
         "descrizione": md(str(course.get("descrizione", ""))),

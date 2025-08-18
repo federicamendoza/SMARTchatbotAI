@@ -561,20 +561,21 @@ if user_input:
             
             if 0 <= selection < len(st.session_state.course_list):
                 selected_course = st.session_state.course_list[selection]
-                start_time = time.time()
-                print(f"[DEBUG] Selected course index: {selection}, Course: {selected_course.get('titolo', 'No title')}")
-                response = format_course(selected_course, selection_lang, llm=st.session_state.llm, user_query=user_input)
-                print(f"[DEBUG] Response language: {selection_lang}, Response preview: {response[:100]}...")
-                end_time = time.time()
-                response_time = end_time - start_time
-                st.session_state.chat_history.append({"role": "assistant", "content": response, "time": response_time})
-                st.session_state.waiting_for_selection = False
-                st.session_state.course_list = []
-                # Store the selected course for follow-up questions
-                st.session_state.current_course = selected_course
-                # Set follow-up mode for the selected course
-                st.session_state.waiting_for_follow_up = True
-                st.session_state.follow_up_prompt = "Ask me anything about this course (requirements, cost, duration, etc.)" if selection_lang == "en" else "Chiedimi qualsiasi cosa su questo corso (requisiti, costo, durata, ecc.)"
+                with st.spinner("Recupero le informazioni del corso/Fetching information about the course..."):
+                    start_time = time.time()
+                    print(f"[DEBUG] Selected course index: {selection}, Course: {selected_course.get('titolo', 'No title')}")
+                    response = format_course(selected_course, selection_lang, llm=st.session_state.llm, user_query=user_input)
+                    print(f"[DEBUG] Response language: {selection_lang}, Response preview: {response[:100]}...")
+                    end_time = time.time()
+                    response_time = end_time - start_time
+                    st.session_state.chat_history.append({"role": "assistant", "content": response, "time": response_time})
+                    st.session_state.waiting_for_selection = False
+                    st.session_state.course_list = []
+                    # Store the selected course for follow-up questions
+                    st.session_state.current_course = selected_course
+                    # Set follow-up mode for the selected course
+                    st.session_state.waiting_for_follow_up = True
+                    st.session_state.follow_up_prompt = "Ask me anything about this course (requirements, cost, duration, etc.)" if selection_lang == "en" else "Chiedimi qualsiasi cosa su questo corso (requisiti, costo, durata, ecc.)"
                 st.rerun()  # Rerun to update the chat with the selected course response
             else:
                 response = f"Numero non valido. Inserisci un numero tra 1 e {len(st.session_state.course_list)}." if selection_lang == "it" else f"Invalid number. Please enter a number between 1 and {len(st.session_state.course_list)}."

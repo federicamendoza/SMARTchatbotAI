@@ -70,6 +70,8 @@ SPECIAL RULE FOR SINGLE WORDS:
 - Examples of single words that should be "course_search": sicurezza, python, design, excel, formazione, training, etc.
 - Only classify as "company_info" if the single word is clearly about company contact/location (telefono, sede, email, etc.)
 
+SPECIAL RULE FOR COST:
+- If the price of a course is not specified, tell the user that they should contact the company for more information.
 Examples:
 - "Hi, who are you?" → general_conversation
 - "Where is the company?" → company_info
@@ -185,7 +187,14 @@ def format_course_response_with_llm(results, lang, llm, user_input):
         "en": "Here are the top 10 courses from the search:",
         "it": "Ecco i primi 10 corsi dalla ricerca:"
     }
-    response = choose_msg[lang] + "\n" + "\n".join(lines)
+    # ✅ Aggiungiamo il messaggio di istruzione
+    instruction_msg = {
+        "en": "\n\nPlease type the number of the course you are interested in for more details.",
+        "it": "\n\nDigita il numero del corso che ti interessa per avere più dettagli."
+    }
+    
+    # ✅ Aggiungiamo l'istruzione alla fine della risposta
+    response = choose_msg[lang] + "\n" + "\n".join(lines) + instruction_msg[lang]
     print(f"[DEBUG SIMPLE OUTPUT] Response: {response[:200]}...")
     return response
 
