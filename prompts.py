@@ -183,10 +183,26 @@ def format_course(course, lang, llm=None, user_query=None):
     cost = course.get("costo")
     cost_line = ""
     if cost and str(cost).strip():
-        if lang == "it":
-            cost_line = f"\n**Costo:** {cost}"
-        else:
-            cost_line = f"\n**Cost:** {cost}"
+        try:
+            # Converte il costo in un numero e scorpora l'IVA (assumendo 22%)
+            prezzo_con_iva = float(cost)
+            prezzo_base = prezzo_con_iva / 1.22
+            
+            # Formatta la stringa in base alla lingua
+            if lang == "it":
+                formatted_cost = f"{int(round(prezzo_base))}€+IVA"
+                cost_line = f"\n**Costo:** {formatted_cost}"
+            else:
+                formatted_cost = f"€{int(round(prezzo_base))}+VAT"
+                cost_line = f"\n**Cost:** {formatted_cost}"
+
+        except (ValueError, TypeError):
+            # Se 'costo' non è un numero (es. "Gratuito"), usa il valore originale
+            if lang == "it":
+                cost_line = f"\n**Costo:** {cost}"
+            else:
+                cost_line = f"\n**Cost:** {cost}"
+    
     return f"{summary}{cost_line}{disclaimer_text}"
 
 def format_response(results, lang, llm=None, user_query=None):

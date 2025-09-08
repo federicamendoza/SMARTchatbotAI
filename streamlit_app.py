@@ -494,143 +494,131 @@ for i, msg in enumerate(st.session_state.chat_history[-10:]):
         
         if msg["role"] == "assistant":
             speak_text_button(msg["content"], lang=st.session_state.last_lang, key=f"tts_{i}")
+# --- MODIFICA INIZIA QUI ---
+
+# Handle course selection via buttons, placed after displaying history and before chat_input
+if st.session_state.waiting_for_selection and st.session_state.course_list:
+    # Use an expander for a cleaner look and to not take up too much space
+    with st.expander("Seleziona un corso per maggiori dettagli:" if st.session_state.last_lang == "it" else "Select a course for more details:", expanded=True):
+        for i, course in enumerate(st.session_state.course_list):
+            # Use the full course title for the button label
+            button_label = f"{course.get('titolo', 'No title')}"
+            if st.button(button_label, key=f"course_select_{i}", use_container_width=True):
+                # User clicked a button, which represents their selection
+                selected_course = st.session_state.course_list[i]
+                selection_lang = st.session_state.last_lang
+
+                # Append a "user" message to the chat history to show what was selected
+                user_selection_message = f"Ho selezionato: {button_label}" if selection_lang == "it" else f"I selected: {button_label}"
+                st.session_state.chat_history.append({"role": "user", "content": user_selection_message})
+
+                with st.spinner("Recupero le informazioni del corso..." if selection_lang == "it" else "Fetching course information..."):
+                    start_time = time.time()
+                    # Get the detailed course information
+                    response = format_course(selected_course, selection_lang, llm=st.session_state.llm, user_query=user_selection_message)
+                    end_time = time.time()
+                    response_time = end_time - start_time
+                    
+                    # Append the detailed bot response to the chat history
+                    st.session_state.chat_history.append({"role": "assistant", "content": response, "time": response_time})
+                    
+                    # Update the state: clear selection mode, and set the current course for follow-ups
+                    st.session_state.waiting_for_selection = False
+                    st.session_state.course_list = []
+                    st.session_state.current_course = selected_course
+                    st.session_state.waiting_for_follow_up = True
+                    st.session_state.follow_up_prompt = "Ask me anything about this course (requirements, cost, duration, etc.)" if selection_lang == "en" else "Chiedimi qualsiasi cosa su questo corso (requisiti, costo, durata, ecc.)"
+                    
+                    # Rerun the app to reflect the changes immediately
+                    st.rerun()
+
+# Add course action buttons if a course is selected and we are NOT waiting for a new selection
+if st.session_state.current_course and not st.session_state.waiting_for_selection:
+    st.markdown("---")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        button_text_ask = "❓ Chiedi di questo corso" if st.session_state.last_lang == "it" else "❓ Ask about this course"
+        if st.button(button_text_ask, key="follow_up_btn", use_container_width=True):
+            # Definisci il messaggio di risposta del bot in base alla lingua
+            if st.session_state.last_lang == "it":
+                response_message = "Certo! Di quali informazioni specifiche hai bisogno? (Es: requisiti, costo, durata, programma...)"
+            else:
+                response_message = "Sure! What specific information do you need? (e.g., requirements, cost, duration, syllabus...)"
+            
+            # Aggiungi il messaggio alla cronologia della chat
+            st.session_state.chat_history.append({"role": "assistant", "content": response_message})
+            
+            # Imposta lo stato per attendere una domanda di follow-up
+            st.session_state.waiting_for_follow_up = True
+            st.session_state.follow_up_prompt = response_message # Usiamo il messaggio come prompt
+            st.rerun()
+    
+    with col2:
+        # --- MODIFICA 2: Bottone "Cerca altri corsi" ---
+        button_text_search = "🔍 Cerca altri corsi" if st.session_state.last_lang == "it" else "🔍 Search other courses"
+        if st.button(button_text_search, key="new_search_btn", use_container_width=True):
+            # Definisci il messaggio di risposta del bot in base alla lingua
+            if st.session_state.last_lang == "it":
+                response_message = "Certamente! Digita le parole chiave del corso che stai cercando."
+            else:
+                response_message = "Of course! Type the keywords for the course you are looking for."
+                
+            # Aggiungi il messaggio alla cronologia della chat
+            st.session_state.chat_history.append({"role": "assistant", "content": response_message})
+
+            # Resetta lo stato per una nuova ricerca
+            st.session_state.current_course = None
+            st.session_state.waiting_for_selection = False
+            st.session_state.course_list = []
+            st.session_state.waiting_for_follow_up = False
+            st.session_state.follow_up_prompt = None
+            st.rerun()
+            
+    # Questo blocco non è più necessario qui perché il messaggio viene già inviato in chat
+    # if st.session_state.get("waiting_for_follow_up", False):
+    #     st.info(st.session_state.get("follow_up_prompt", "Ask me anything about this course!"))
 
 # Chat input
 user_input = st.chat_input("Chiedi informazioni sui corsi (IT/EN):" if st.session_state.last_lang == "it" else "Ask about courses (IT/EN):")
+
 if user_input:
     response_time = None
     st.session_state.chat_history.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    # Use the selected language instead of automatic detection
+    # Use the selected language
     lang = st.session_state.last_lang
     
-    # Check if user is selecting a course by number or full course name
-    number_match = re.match(r'^\d+$', user_input.strip())
-    
-    # Check if user is selecting by full course name (e.g., "1. 3D Studio Max - Corso in FaD")
-    course_name_match = re.match(r'^\d+\.\s*(.+)$', user_input.strip())
-    
-    # Check if user is selecting by full course name with hours (e.g., "3D Studio Max - Corso in FaD (6 ore)")
-    course_with_hours_match = re.match(r'^(.+?)\s*\(\d+\s*ore\)$', user_input.strip())
-    
-    # Debug the selection state
-    print(f"[DEBUG] Selection check - Input: '{user_input}', waiting_for_selection: {st.session_state.waiting_for_selection}, course_list length: {len(st.session_state.course_list) if st.session_state.course_list else 0}")
-    print(f"[DEBUG] Number match: {number_match}, Course name match: {course_name_match}, Course with hours match: {course_with_hours_match}")
-    
-    if (number_match or course_name_match or course_with_hours_match) and st.session_state.waiting_for_selection and st.session_state.course_list:
-        # User is selecting a course - use the selected language
-        selection_lang = st.session_state.last_lang
-        print(f"[DEBUG] Course selection - User input: '{user_input}', Selection lang: {selection_lang}")
-        try:
-            if number_match:
-                # Numeric selection
-                selection = int(user_input.strip()) - 1  # Convert to 0-based index
-                print(f"[DEBUG] Numeric selection: {selection} (0-based)")
-            elif course_name_match:
-                # Full course name selection - find the course by name
-                course_name = course_name_match.group(1).strip()
-                selection = -1
-                for i, course in enumerate(st.session_state.course_list):
-                    if course.get('titolo', '').lower() == course_name.lower():
-                        selection = i
-                        break
-                
-                if selection == -1:
-                    # Try partial match
-                    for i, course in enumerate(st.session_state.course_list):
-                        if course_name.lower() in course.get('titolo', '').lower():
-                            selection = i
-                            break
-            elif course_with_hours_match:
-                # Course name with hours - extract just the course name
-                course_name = course_with_hours_match.group(1).strip()
-                selection = -1
-                for i, course in enumerate(st.session_state.course_list):
-                    if course.get('titolo', '').lower() == course_name.lower():
-                        selection = i
-                        break
-                
-                if selection == -1:
-                    # Try partial match
-                    for i, course in enumerate(st.session_state.course_list):
-                        if course_name.lower() in course.get('titolo', '').lower():
-                            selection = i
-                            break
-            
-            if 0 <= selection < len(st.session_state.course_list):
-                selected_course = st.session_state.course_list[selection]
-                with st.spinner("Recupero le informazioni del corso/Fetching information about the course..."):
-                    start_time = time.time()
-                    print(f"[DEBUG] Selected course index: {selection}, Course: {selected_course.get('titolo', 'No title')}")
-                    response = format_course(selected_course, selection_lang, llm=st.session_state.llm, user_query=user_input)
-                    print(f"[DEBUG] Response language: {selection_lang}, Response preview: {response[:100]}...")
-                    end_time = time.time()
-                    response_time = end_time - start_time
-                    st.session_state.chat_history.append({"role": "assistant", "content": response, "time": response_time})
-                    st.session_state.waiting_for_selection = False
-                    st.session_state.course_list = []
-                    # Store the selected course for follow-up questions
-                    st.session_state.current_course = selected_course
-                    # Set follow-up mode for the selected course
-                    st.session_state.waiting_for_follow_up = True
-                    st.session_state.follow_up_prompt = "Ask me anything about this course (requirements, cost, duration, etc.)" if selection_lang == "en" else "Chiedimi qualsiasi cosa su questo corso (requisiti, costo, durata, ecc.)"
-                st.rerun()  # Rerun to update the chat with the selected course response
-            else:
-                response = f"Numero non valido. Inserisci un numero tra 1 e {len(st.session_state.course_list)}." if selection_lang == "it" else f"Invalid number. Please enter a number between 1 and {len(st.session_state.course_list)}."
-        except ValueError:
-            response = "Numero non valido. Riprova." if selection_lang == "it" else "Invalid number. Please try again."
-    else:
-        # Regular query - use the selected language
-        print(f"[DEBUG] Regular query - Using selected language: {lang}")
-        
-        # Check if we have a current course and should treat this as a follow-up question
-        if st.session_state.current_course and st.session_state.waiting_for_follow_up:
-            # This is definitely a follow-up question about the current course
-            print(f"[DEBUG] Follow-up question mode - Current course: {st.session_state.current_course.get('titolo', 'No title')}")
-            response = format_course(st.session_state.current_course, lang, llm=st.session_state.llm, user_query=user_input)
-        elif st.session_state.current_course:
-            # We have a current course but not in follow-up mode - ask LLM to decide
-            follow_up_decision = get_follow_up_decision(user_input, lang, st.session_state.llm, st.session_state.current_course)
-            
-            if follow_up_decision:
-                # This is a follow-up question about the current course
-                print(f"[DEBUG] LLM detected follow-up question about current course: {st.session_state.current_course.get('titolo', 'No title')}")
-                response = format_course(st.session_state.current_course, lang, llm=st.session_state.llm, user_query=user_input)
-            else:
-                # New search query
-                with st.spinner("🔍 Cercando informazioni..." if lang == "it" else "🔍 Searching for information..."):
-                    try:
-                        # Use enhanced RAG-first approach
-                        response, course_list, response_time = enhanced_chat(user_input, llm=st.session_state.llm, lang=lang)
-                        
-                        st.session_state.last_response_time = response_time 
+    # THE ENTIRE LOGIC FOR NUMERIC/TEXT SELECTION HAS BEEN REMOVED FROM HERE.
+    # The input is now always treated as a new query or a follow-up.
 
-                        # Check if response contains a course list (multiple courses found)
-                        if course_list and len(course_list) > 1:
-                            st.session_state.waiting_for_selection = True
-                            # Store the course list for later selection
-                            st.session_state.course_list = course_list
-                            # Clear current course when starting new search
-                            st.session_state.current_course = None
-                            st.session_state.waiting_for_follow_up = False
-                            st.session_state.follow_up_prompt = None
-                        
-                    except Exception as e:
-                        response = f"Mi dispiace, si è verificato un errore: {str(e)}" if lang == "it" else f"I'm sorry, an error occurred: {str(e)}"
-                        st.session_state.waiting_for_selection = False
-                        st.session_state.course_list = []
-                        st.session_state.current_course = None
-                        st.session_state.waiting_for_follow_up = False
-                        st.session_state.follow_up_prompt = None
+    # Regular query - use the selected language
+    print(f"[DEBUG] Regular query - Using selected language: {lang}")
+    
+    # Check if we have a current course and should treat this as a follow-up question
+    if st.session_state.current_course and st.session_state.waiting_for_follow_up:
+        # This is definitely a follow-up question about the current course
+        print(f"[DEBUG] Follow-up question mode - Current course: {st.session_state.current_course.get('titolo', 'No title')}")
+        response = format_course(st.session_state.current_course, lang, llm=st.session_state.llm, user_query=user_input)
+    elif st.session_state.current_course:
+        # We have a current course but not in follow-up mode - ask LLM to decide
+        follow_up_decision = get_follow_up_decision(user_input, lang, st.session_state.llm, st.session_state.current_course)
+        
+        if follow_up_decision:
+            # This is a follow-up question about the current course
+            print(f"[DEBUG] LLM detected follow-up question about current course: {st.session_state.current_course.get('titolo', 'No title')}")
+            response = format_course(st.session_state.current_course, lang, llm=st.session_state.llm, user_query=user_input)
         else:
-            # No current course, so this is definitely a new search
+            # New search query
             with st.spinner("🔍 Cercando informazioni..." if lang == "it" else "🔍 Searching for information..."):
                 try:
                     # Use enhanced RAG-first approach
                     response, course_list, response_time = enhanced_chat(user_input, llm=st.session_state.llm, lang=lang)
                     
+                    st.session_state.last_response_time = response_time 
+
                     # Check if response contains a course list (multiple courses found)
                     if course_list and len(course_list) > 1:
                         st.session_state.waiting_for_selection = True
@@ -648,6 +636,30 @@ if user_input:
                     st.session_state.current_course = None
                     st.session_state.waiting_for_follow_up = False
                     st.session_state.follow_up_prompt = None
+    else:
+        # No current course, so this is definitely a new search
+        with st.spinner("🔍 Cercando informazioni..." if lang == "it" else "🔍 Searching for information..."):
+            try:
+                # Use enhanced RAG-first approach
+                response, course_list, response_time = enhanced_chat(user_input, llm=st.session_state.llm, lang=lang)
+                
+                # Check if response contains a course list (multiple courses found)
+                if course_list and len(course_list) > 1:
+                    st.session_state.waiting_for_selection = True
+                    # Store the course list for later selection
+                    st.session_state.course_list = course_list
+                    # Clear current course when starting new search
+                    st.session_state.current_course = None
+                    st.session_state.waiting_for_follow_up = False
+                    st.session_state.follow_up_prompt = None
+                
+            except Exception as e:
+                response = f"Mi dispiace, si è verificato un errore: {str(e)}" if lang == "it" else f"I'm sorry, an error occurred: {str(e)}"
+                st.session_state.waiting_for_selection = False
+                st.session_state.course_list = []
+                st.session_state.current_course = None
+                st.session_state.waiting_for_follow_up = False
+                st.session_state.follow_up_prompt = None
     
     # 1. Visualizza la risposta del bot con l'effetto "macchina da scrivere"
     with st.chat_message("assistant"):
@@ -663,35 +675,13 @@ if user_input:
     st.session_state.chat_history.append({"role": "assistant", "content": response})
 
     # 3. Controlla e stampa il tempo di risposta (se disponibile)
-    #    Questa didascalia apparirà sotto la "bolla" di chat per una migliore leggibilità.
     if response_time is not None:
         st.caption(f"⏱️ Tempo di risposta: {response_time:.2f} secondi")
     
     # 4. Mostra il bottone "Speak"
     speak_text_button(response, lang=st.session_state.last_lang)
-
-    # Add course action buttons if a course is selected
-    if st.session_state.current_course:
-        st.markdown("---")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if st.button("❓ Ask about this course", key="follow_up_btn"):
-                # This will trigger a follow-up question mode
-                st.session_state.waiting_for_follow_up = True
-                st.session_state.follow_up_prompt = "Ask me anything about this course (requirements, cost, duration, etc.)"
-                st.rerun()
-        
-        with col2:
-            if st.button("🔍 Search other courses", key="new_search_btn"):
-                # Clear current course and start new search
-                st.session_state.current_course = None
-                st.session_state.waiting_for_selection = False
-                st.session_state.course_list = []
-                st.session_state.waiting_for_follow_up = False
-                st.session_state.follow_up_prompt = None
-                st.rerun()
-        
-        # Show follow-up prompt if waiting for follow-up question
-        if st.session_state.get("waiting_for_follow_up", False):
-            st.info(st.session_state.get("follow_up_prompt", "Ask me anything about this course!")) 
+    
+    # 5. Se la ricerca ha prodotto una lista di corsi, fa un rerun per mostrare i bottoni
+    if st.session_state.waiting_for_selection:
+        st.rerun()
+    

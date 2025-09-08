@@ -136,68 +136,12 @@ Respond with ONLY the decision (general_conversation, company_info, or course_se
         return "general_conversation"
 
 def format_course_response_with_llm(results, lang, llm, user_input):
-    """
-    Return exactly 10 results with proper prioritization for exact matches.
-    """
-    # Take exactly 10 results
-    top_results = results[:10]
-    
-    # Prioritize results that contain the exact search term
-    user_input_lower = user_input.lower()
-    prioritized_results = []
-    other_results = []
-    
-    for course in top_results:
-        title = course.get("titolo", "").lower()
-        # Check if the search term appears in the title
-        if user_input_lower in title:
-            prioritized_results.append(course)
-        else:
-            other_results.append(course)
-    
-    # If we don't have enough prioritized results, check the full results list
-    if len(prioritized_results) < 10:
-        for course in results:
-            if len(prioritized_results) >= 10:
-                break
-            title = course.get("titolo", "").lower()
-            if user_input_lower in title and course not in prioritized_results:
-                prioritized_results.append(course)
-    
-    # Combine prioritized results first, then others, but keep exactly 10
-    final_results = prioritized_results + other_results
-    final_results = final_results[:10]  # Keep exactly 10 results
-    
-    # DEBUG: Show what courses are being passed to LLM
-    print(f"[DEBUG LLM INPUT] Top 10 courses (prioritized for '{user_input}'):")
-    for i, course in enumerate(final_results, 1):
-        title = course.get("titolo", "No title")
-        print(f"  {i}. {title}")
-    
-    # Format the results as a numbered list
-    lines = []
-    for i, course in enumerate(final_results, 1):
-        title = course.get("titolo") or "(No title)"
-        ore = course.get("ore")
-        ore_str = f" ({ore} ore)" if ore else ""
-        lines.append(f"{i}. {title}{ore_str}")
-    
-    # Return the formatted results
-    choose_msg = {
-        "en": "Here are the top 10 courses from the search:",
-        "it": "Ecco i primi 10 corsi dalla ricerca:"
+    # Messaggio introduttivo quando vengono trovati più corsi
+    response_text = {
+        "en": "I found several courses that match your query. You can select one from the buttons below for more details:",
+        "it": "Ho trovato diversi corsi che corrispondono alla tua ricerca. Puoi selezionarne uno dai bottoni qui sotto per avere più dettagli:"
     }
-    # ✅ Aggiungiamo il messaggio di istruzione
-    instruction_msg = {
-        "en": "\n\nPlease type the number of the course you are interested in for more details.",
-        "it": "\n\nDigita il numero del corso che ti interessa per avere più dettagli."
-    }
-    
-    # ✅ Aggiungiamo l'istruzione alla fine della risposta
-    response = choose_msg[lang] + "\n" + "\n".join(lines) + instruction_msg[lang]
-    print(f"[DEBUG SIMPLE OUTPUT] Response: {response[:200]}...")
-    return response
-
+    return response_text[lang]
 
 
 def get_general_response(user_input, lang):
