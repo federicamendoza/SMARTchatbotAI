@@ -13,38 +13,42 @@ import time
 def enhanced_chat(user_input, llm=None, lang=None):
     start_time = time.time()
 
-    # Use provided language or fallback to detection
     if lang is None:
         lang = detect_language(user_input)
     
     llm_decision = get_llm_decision(user_input, lang, llm)
     print(f"[LLM DECISION] {llm_decision}")
     
+    # Inizializza le variabili di default
+    course_list_with_scores = []
+    response = ""
+    
     if llm_decision == "general_conversation":
-        response, course_list = get_general_response(user_input, lang), None
+        response = get_general_response(user_input, lang)
     
     elif llm_decision == "company_info":
-        response, course_list = search_company_information(user_input, lang, llm), None
+        response = search_company_information(user_input, lang, llm)
     
     elif llm_decision == "course_search":
-        results = search_vector_database(user_input)
+        # Ora questa funzione restituisce una lista di tuple: (risultato, punteggio)
+        results_with_scores = search_vector_database(user_input)
         
-        if not results:
-            response, course_list = NO_RESULT[lang], None
+        if not results_with_scores:
+            response = NO_RESULT[lang]
         else:
-            print(f"[RAG-FIRST] Found {len(results)} relevant results in database")
-            response = format_course_response_with_llm(results, lang, llm, user_input)
-            course_list = results if len(results) > 1 else None
+            print(f"[RAG-FIRST] Found {len(results_with_scores)} relevant results with scores")
+            response = format_course_response_with_llm(results_with_scores, lang, llm, user_input)
+            # Assegna la lista completa per passarla a Streamlit
+            course_list_with_scores = results_with_scores
     
-    else:
-        response, course_list = get_general_response(user_input, lang), None
+    else: # Fallback per decisioni non riconosciute
+        response = get_general_response(user_input, lang)
 
-    # ⏱️ --- FINE TIMER E RESTITUZIONE ---
     end_time = time.time()
     elapsed_time = end_time - start_time
     
-    # Ora restituiamo tre valori: la risposta, la lista dei corsi e il tempo impiegato
-    return response, course_list, elapsed_time
+    # Restituisce la nuova struttura dati con i punteggi
+    return response, course_list_with_scores, elapsed_time
 
 def get_llm_decision(user_input, lang, llm):
     
@@ -360,18 +364,35 @@ def search_vector_database(user_input):
                 scored_results.append((score, result, "semantic"))
                 seen_titles.add(title)
         
-        # Sort by score (highest first)
+        # --- INIZIO MODIFICHE CHIAVE ---
+
+        # 1. Ordina tutti i risultati in base al punteggio
         scored_results.sort(key=lambda x: x[0], reverse=True)
+
+        # Stampa di debug con TUTTI i punteggi calcolati
+        print("\n[DEBUG - ALL SCORES] Printing all calculated scores before filtering:")
+        if not scored_results:
+            print("  No results to score.")
+        else:
+            for i, (score, result, source) in enumerate(scored_results, 1):
+                title = result.get("titolo", "No title")
+                print(f"  {i}. [{source.upper():<9}] Score: {score:<5} | {title}")
+        print("-" * 60)
+
+        # 2. Imposta la nuova soglia di punteggio a 110
+        score_threshold = 110
         
-        # Take top 10 results
-        final_results = [result for score, result, source in scored_results[:10]]
+        # 3. Filtra i risultati per mantenere solo quelli sopra la soglia
+        filtered_results = [
+            (result, score) for score, result, source in scored_results if score >= score_threshold
+        ]
         
-        print(f"[SMART COMBINATION] Final results with scores:")
-        for i, (score, result, source) in enumerate(scored_results[:10], 1):
-            title = result.get("titolo", "No title")
-            print(f"  {i}. [{source.upper()}] Score: {score} - {title}")
+        print(f"[SMART COMBINATION] Found {len(filtered_results)} results with score >= {score_threshold}")
+
+        # 4. Limita i risultati finali a un massimo di 10
+        final_results = filtered_results[:10]
         
-        print(f"[COMBINED RESULTS] Total unique results: {len(final_results)}")
+        print(f"[FINAL RESULTS] Returning {len(final_results)} courses to the user (max 10).")
         return final_results
         
     except Exception as e:
@@ -492,6 +513,11 @@ if __name__ == "__main__":
         print(f"\n[⏱️ Tempo di risposta: {response_time:.2f} secondi]")
         
         if course_list:
-            print("Course List:", course_list)
-        
+            # Aggiorna il testo qui per mostrare la soglia corretta
+            print(f"\n--- Corsi Trovati (Punteggio >= 110, max 10) ---")
+            for i, (course_data, score) in enumerate(course_list, 1):
+                title = course_data.get("titolo", "N/A")
+                print(f"{i}. Punteggio: {score:<5} | Titolo: {title}")
+            print("-" * 55)
+    
         print("-" * 50) # Aggiunge un separatore per leggibilità

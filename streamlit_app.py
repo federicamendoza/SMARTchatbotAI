@@ -6,6 +6,8 @@ from rag_chatbot import enhanced_chat
 from langchain_ollama import ChatOllama
 from prompts import format_course
 import re
+import streamlit.components.v1 as components
+import json
 
 def get_follow_up_decision(user_input, lang, llm, current_course):
     """
@@ -59,222 +61,151 @@ Respond with ONLY "yes" if it's a follow-up about the current course, or "no" if
         print(f"[FOLLOW-UP DECISION ERROR] {e}")
         return False
 
-def speak_text_button(text, lang="en", key=None):
-    """Ultra-high-quality browser TTS with intelligent voice selection for the best possible speech"""
-    if st.button("🔊 Speak", key=key):
-        # Map language codes for browser TTS
-        lang_map = {"en": "en-US", "it": "it-IT"}
-        browser_lang = lang_map.get(lang, "en-US")
+
+
+def tts_controls(text, lang="en", key=None):
+    """
+    Crea controlli TTS che uniscono l'interfaccia avanzata (Play/Pausa/Riavvia)
+    con la logica di selezione vocale di alta qualità.
+    """
+    text_json = json.dumps(text)
+    lang_map = {"en": "en-US", "it": "it-IT"}
+    browser_lang = lang_map.get(lang, "en-US")
+
+    # Imposta il testo iniziale del bottone in base alla lingua
+    speak_text = "▶️ Riproduci" if lang == "it" else "▶️ Speak"
+
+    html_code = f"""
+    <style>
+        .tts-controls {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        .tts-controls button {{
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background-color: #2b2d31; color: white; border: 1px solid #4f5257;
+            border-radius: 8px; padding: 6px 12px;
+            cursor: pointer; font-size: 16px; line-height: 1;
+            transition: background-color 0.2s;
+            width: 125px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }}
+        .tts-controls button:hover {{ background-color: #4f5257; }}
+        .tts-controls button:disabled {{ cursor: not-allowed; opacity: 0.4; }}
+        .tts-controls button#restart-btn-{key} {{ 
+            width: auto;
+            padding: 10px;
+        }}
+    </style>
+    <div class="tts-controls" id="tts-controls-{key}">
+        <button id="play-pause-btn-{key}" title="Play/Pause">{speak_text}</button>
+        <button id="restart-btn-{key}" title="Restart" disabled>⏮️</button>
+    </div>
+
+    <script>
+    (() => {{
+        const playPauseBtn = document.getElementById('play-pause-btn-{key}');
+        const restartBtn = document.getElementById('restart-btn-{key}');
+
+        let utterance = null;
+        const textToSpeak = {text_json};
+        const langToSpeak = "{browser_lang}";
         
-        # Create ultra-advanced JavaScript for optimal voice selection
-        js_code = f"""
-        <script>
+        const translations = {{
+            it: {{ speak: '▶️ Riproduci', pause: '⏸️ Pausa', resume: '▶️ Riprendi' }},
+            en: {{ speak: '▶️ Speak', pause: '⏸️ Pause', resume: '▶️ Resume' }}
+        }};
+        const currentLang = "{lang}";
+        const T = translations[currentLang] || translations['en'];
+
+        // --- INIZIO CODICE DEL TUO COLLEGA ---
         function getVoiceQualityScore(voice) {{
             let score = 0;
             const name = voice.name.toLowerCase();
             const lang = voice.lang.toLowerCase();
-            
-            // Ultra-premium voices (highest priority)
-            if (name.includes('premium') || name.includes('enhanced') || name.includes('pro') || 
-                name.includes('natural') || name.includes('human') || name.includes('real')) {{
-                score += 2000;
-            }}
-            
-            // High-quality voice names by platform - more comprehensive list
-            // macOS voices (known for high quality)
-            if (name.includes('samantha') || name.includes('victoria') || name.includes('alex') || 
-                name.includes('daniel') || name.includes('karen') || name.includes('tom') ||
-                name.includes('fred') || name.includes('ralph') || name.includes('bruce') ||
-                name.includes('jill') || name.includes('vicki') || name.includes('lee') ||
-                name.includes('reed') || name.includes('susan') || name.includes('bells') ||
-                name.includes('deranged') || name.includes('good news') || name.includes('bad news') ||
-                name.includes('pipe organ') || name.includes('trinoids') || name.includes('whisper') ||
-                name.includes('cellos') || name.includes('junior') || name.includes('senior') ||
-                name.includes('boing') || name.includes('bahh') || name.includes('hysterical') ||
-                name.includes('princess') || name.includes('rocko') || name.includes('wobble') ||
-                name.includes('zarvox')) {{
-                score += 1500;
-            }}
-            
-            // Windows voices (high quality)
-            if (name.includes('david') || name.includes('zira') || name.includes('mark') ||
-                name.includes('eva') || name.includes('helena') || name.includes('jorge') ||
-                name.includes('pablo') || name.includes('miguel') || name.includes('elena') ||
-                name.includes('hazel') || name.includes('heera') || name.includes('kalpana') ||
-                name.includes('hemant') || name.includes('heera') || name.includes('kalia') ||
-                name.includes('neerja') || name.includes('priya') || name.includes('ravi') ||
-                name.includes('sabina') || name.includes('tracy') || name.includes('yating') ||
-                name.includes('yunyang') || name.includes('huihui') || name.includes('kangkang') ||
-                name.includes('yaoyao') || name.includes('lili') || name.includes('hanhan') ||
-                name.includes('zhiwei') || name.includes('asaf') || name.includes('hila') ||
-                name.includes('heidi') || name.includes('irina') || name.includes('maria') ||
-                name.includes('sapi') || name.includes('microsoft')) {{
-                score += 1200;
-            }}
-            
-            // Chrome/Edge voices (often high quality)
-            if (name.includes('google') || name.includes('microsoft') || name.includes('edge') ||
-                name.includes('chrome') || name.includes('chromium')) {{
-                score += 1000;
-            }}
-            
-            // Italian specific high-quality voices
+            if (name.includes('premium') || name.includes('enhanced') || name.includes('pro') || name.includes('natural') || name.includes('human') || name.includes('real')) score += 2000;
+            if (name.includes('samantha') || name.includes('victoria') || name.includes('alex') || name.includes('daniel') || name.includes('karen') || name.includes('tom') || name.includes('fred') || name.includes('ralph') || name.includes('bruce') || name.includes('jill') || name.includes('vicki') || name.includes('lee') || name.includes('reed') || name.includes('susan') || name.includes('bells')) score += 1500;
+            if (name.includes('david') || name.includes('zira') || name.includes('mark') || name.includes('eva') || name.includes('helena') || name.includes('jorge') || name.includes('pablo') || name.includes('miguel') || name.includes('elena') || name.includes('hazel') || name.includes('heera') || name.includes('kalpana') || name.includes('hemant') || name.includes('heera') || name.includes('kalia') || name.includes('neerja') || name.includes('priya') || name.includes('ravi') || name.includes('sabina') || name.includes('tracy') || name.includes('yating')) score += 1200;
+            if (name.includes('google') || name.includes('microsoft') || name.includes('edge') || name.includes('chrome') || name.includes('chromium')) score += 1000;
             if (lang.startsWith('it')) {{
-                if (name.includes('chiara') || name.includes('lucia') || name.includes('alice') ||
-                    name.includes('federica') || name.includes('marco') || name.includes('paolo') ||
-                    name.includes('roberto') || name.includes('silvia') || name.includes('elena') ||
-                    name.includes('giulia') || name.includes('luca') || name.includes('anna') ||
-                    name.includes('carlo') || name.includes('maria') || name.includes('giuseppe') ||
-                    name.includes('antonio') || name.includes('francesca') || name.includes('andrea')) {{
-                    score += 1800;
-                }}
-                // Any Italian voice gets significant bonus
+                if (name.includes('chiara') || name.includes('lucia') || name.includes('alice') || name.includes('federica') || name.includes('marco') || name.includes('paolo') || name.includes('roberto') || name.includes('silvia') || name.includes('elena') || name.includes('giulia')) score += 1800;
                 score += 800;
             }}
-            
-            // English specific high-quality voices
-            if (lang.startsWith('en')) {{
-                if (name.includes('samantha') || name.includes('victoria') || name.includes('alex') ||
-                    name.includes('daniel') || name.includes('karen') || name.includes('tom') ||
-                    name.includes('fred') || name.includes('ralph') || name.includes('bruce') ||
-                    name.includes('david') || name.includes('zira') || name.includes('mark') ||
-                    name.includes('eva') || name.includes('helena') || name.includes('jorge') ||
-                    name.includes('pablo') || name.includes('miguel') || name.includes('elena') ||
-                    name.includes('hazel') || name.includes('heera') || name.includes('kalpana') ||
-                    name.includes('hemant') || name.includes('kalia') || name.includes('neerja') ||
-                    name.includes('priya') || name.includes('ravi') || name.includes('sabina') ||
-                    name.includes('tracy') || name.includes('yating') || name.includes('yunyang') ||
-                    name.includes('huihui') || name.includes('kangkang') || name.includes('yaoyao') ||
-                    name.includes('lili') || name.includes('hanhan') || name.includes('zhiwei') ||
-                    name.includes('asaf') || name.includes('hila') || name.includes('heidi') ||
-                    name.includes('irina') || name.includes('maria') || name.includes('sapi') ||
-                    name.includes('microsoft') || name.includes('google')) {{
-                    score += 1500;
-                }}
-                // Any English voice gets bonus
-                score += 600;
-            }}
-            
-            // Strongly prefer female voices (often sound more natural)
-            if (name.includes('female') || name.includes('woman') || name.includes('girl') ||
-                name.includes('samantha') || name.includes('victoria') || name.includes('karen') ||
-                name.includes('zira') || name.includes('eva') || name.includes('helena') ||
-                name.includes('chiara') || name.includes('lucia') || name.includes('alice') ||
-                name.includes('federica') || name.includes('silvia') || name.includes('elena') ||
-                name.includes('giulia') || name.includes('anna') || name.includes('maria') ||
-                name.includes('francesca') || name.includes('hazel') || name.includes('heera') ||
-                name.includes('kalpana') || name.includes('neerja') || name.includes('priya') ||
-                name.includes('sabina') || name.includes('tracy') || name.includes('yating') ||
-                name.includes('huihui') || name.includes('yaoyao') || name.includes('lili') ||
-                name.includes('hila') || name.includes('heidi') || name.includes('irina') ||
-                name.includes('maria')) {{
-                score += 400;
-            }}
-            
-            // Prefer US English for English
-            if (lang.startsWith('en-us')) {{
-                score += 500;
-            }}
-            
-            // Prefer Italian-IT for Italian
-            if (lang.startsWith('it-it')) {{
-                score += 500;
-            }}
-            
-            // Prefer local voices over remote ones
-            if (!name.includes('remote') && !name.includes('network')) {{
-                score += 200;
-            }}
-            
-            // Avoid robotic-sounding voices
-            if (name.includes('robot') || name.includes('mechanical') || name.includes('synthetic') ||
-                name.includes('artificial') || name.includes('computer') || name.includes('system')) {{
-                score -= 1000;
-            }}
-            
+            if (lang.startsWith('en')) score += 600;
+            if (name.includes('female') || name.includes('woman') || name.includes('girl')) score += 400;
+            if (!name.includes('remote') && !name.includes('network')) score += 200;
+            if (name.includes('robot') || name.includes('mechanical') || name.includes('synthetic')) score -= 1000;
             return score;
         }}
-        
+
         function findBestVoice(targetLang) {{
             const voices = window.speechSynthesis.getVoices();
             let bestVoice = null;
             let bestScore = -1;
-            let topVoices = [];
-            
-            console.log('Available voices:', voices.map(v => `${{v.name}} (${{v.lang}})`));
-            
             for (const voice of voices) {{
-                const score = getVoiceQualityScore(voice);
-                console.log(`Voice: ${{voice.name}} (${{voice.lang}}) - Score: ${{score}}`);
-                
-                topVoices.push({{ voice: voice, score: score }});
-                
-                if (score > bestScore) {{
-                    bestScore = score;
-                    bestVoice = voice;
+                if (voice.lang.startsWith(targetLang.substring(0, 2))) {{
+                    const score = getVoiceQualityScore(voice);
+                    if (score > bestScore) {{
+                        bestScore = score;
+                        bestVoice = voice;
+                    }}
                 }}
             }}
-            
-            // Sort by score and get top 3 voices for fallback
-            topVoices.sort((a, b) => b.score - a.score);
-            const top3Voices = topVoices.slice(0, 3);
-            
-            return {{ voice: bestVoice, score: bestScore, alternatives: top3Voices }};
+            console.log('Selected best voice:', bestVoice ? bestVoice.name : 'default');
+            return bestVoice;
         }}
-        
-        function speakWithBestVoice() {{
-            const utterance = new SpeechSynthesisUtterance({repr(text)});
-            utterance.lang = {repr(browser_lang)};
+        // --- FINE CODICE DEL TUO COLLEGA ---
+
+        function createAndPlayUtterance() {{
+            window.speechSynthesis.cancel(); 
+            utterance = new SpeechSynthesisUtterance(textToSpeak);
+            utterance.lang = langToSpeak;
             
-            // Find the absolute best voice with alternatives
-            const result = findBestVoice({repr(browser_lang)});
+            // Applica la funzione per trovare la voce migliore
+            utterance.voice = findBestVoice(langToSpeak);
             
-            if (result.voice) {{
-                utterance.voice = result.voice;
-                console.log('🎯 Selected BEST voice:', result.voice.name, result.voice.lang, 'Score:', result.score);
-                console.log('🔄 Alternative voices:', result.alternatives.slice(1).map(v => `${{v.voice.name}} (Score: ${{v.score}})`));
-            }} else {{
-                console.log('⚠️ No suitable voice found, using default');
-            }}
+            utterance.rate = 1.1;
+            utterance.pitch = 1.1;
+
+            utterance.onstart = () => {{ playPauseBtn.innerHTML = T.pause; restartBtn.disabled = false; }};
+            utterance.onend = () => {{ playPauseBtn.innerHTML = T.speak; restartBtn.disabled = true; }};
+            utterance.onpause = () => {{ playPauseBtn.innerHTML = T.resume; }};
+            utterance.onresume = () => {{ playPauseBtn.innerHTML = T.pause; }};
             
-            // Ultra-optimized speech parameters for maximum naturalness and human-like quality
-            utterance.rate = 1.1;    // Slightly faster speed for more natural speech while maintaining clarity
-            utterance.pitch = 1.1;    // Slightly higher pitch for more natural sound
-            utterance.volume = 0.95;  // Slightly lower volume for more natural presence
-            
-            // Add natural speech patterns and pauses
-            const naturalText = {repr(text)}.replace(/[.!?]/g, match => match + ' ');
-            utterance.text = naturalText;
-            
-            // Enhanced event listeners for better control and debugging
-            utterance.onstart = () => {{
-                console.log('🎤 Speech started with voice:', utterance.voice ? utterance.voice.name : 'default');
-            }};
-            utterance.onend = () => {{
-                console.log('✅ Speech completed successfully');
-            }};
-            utterance.onerror = (event) => {{
-                console.error('❌ Speech error:', event.error);
-            }};
-            
-            // Speak the text
             window.speechSynthesis.speak(utterance);
         }}
-        
-        // Ensure voices are loaded before speaking
-        if (window.speechSynthesis.getVoices().length === 0) {{
-            window.speechSynthesis.onvoiceschanged = speakWithBestVoice;
-        }} else {{
-            speakWithBestVoice();
-        }}
-        </script>
-        """
-        components.html(js_code, height=0)
+
+        playPauseBtn.addEventListener('click', () => {{
+            if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+            else if (window.speechSynthesis.speaking) window.speechSynthesis.pause();
+            else {{
+                 if (window.speechSynthesis.getVoices().length === 0) {{
+                    window.speechSynthesis.onvoiceschanged = createAndPlayUtterance;
+                }} else {{
+                    createAndPlayUtterance();
+                }}
+            }}
+        }});
+
+        restartBtn.addEventListener('click', () => {{
+            window.speechSynthesis.cancel();
+            setTimeout(() => window.speechSynthesis.speak(utterance), 100);
+        }});
+    }})();
+    </script>
+    """
+    components.html(html_code, height=60)
 
 st.set_page_config(page_title="Smart2t Course Chatbot", page_icon="🤖")
 st.title("Smart2t Course Chatbot 🤖")
 
 # Initialize session state
+if "last_course_list" not in st.session_state:
+    st.session_state.last_course_list = []
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "last_lang" not in st.session_state:
@@ -488,200 +419,106 @@ if not st.session_state.chat_history and st.session_state.language_selected:
 for i, msg in enumerate(st.session_state.chat_history[-10:]):
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
-        # ✅ Se il messaggio ha un tempo salvato, lo visualizza qui
         if msg.get("time") is not None:
             st.caption(f"⏱️ Tempo di risposta: {msg['time']:.2f} secondi")
         
         if msg["role"] == "assistant":
-            speak_text_button(msg["content"], lang=st.session_state.last_lang, key=f"tts_{i}")
-# --- MODIFICA INIZIA QUI ---
+            tts_controls(msg["content"], lang=st.session_state.last_lang, key=f"tts_{i}")
+            # Mostra i bottoni di azione SOTTO i messaggi precedenti se c'è un corso attivo
+            # e se questo è l'ultimo messaggio della cronologia
+            is_last_message = (i == len(st.session_state.chat_history[-10:]) - 1)
+            if is_last_message and st.session_state.current_course and not st.session_state.waiting_for_selection:
+                st.markdown("---")
+                col1, col2, col3= st.columns(3)
+                with col1:
+                    button_text_ask = "❓ Chiedi di questo corso" if st.session_state.last_lang == "it" else "❓ Ask about this course"
+                    if st.button(button_text_ask, key=f"follow_up_btn_{i}", use_container_width=True):
+                        msg_text = "Certo! Di quali informazioni specifiche hai bisogno?" if st.session_state.last_lang == "it" else "Sure! What specific information do you need?"
+                        st.session_state.chat_history.append({"role": "assistant", "content": msg_text})
+                        st.session_state.waiting_for_follow_up = True
+                        st.rerun()
+                with col2:
+                    button_text_search = "🔍 Cerca altri corsi o poni altre domande" if st.session_state.last_lang == "it" else "🔍 Search other courses or ask other questions"
+                    if st.button(button_text_search, key=f"new_search_btn_{i}", use_container_width=True):
+                        msg_text = "Certamente! Digita le parole chiave." if st.session_state.last_lang == "it" else "Of course! Type the keywords."
+                        st.session_state.chat_history.append({"role": "assistant", "content": msg_text})
+                        st.session_state.current_course = None
+                        st.session_state.waiting_for_follow_up = False
+                        st.rerun()
+                # --- NUOVO BLOCCO PER IL TERZO BOTTONE ---
+                with col3:
+                    # Mostra il bottone solo se c'è una lista a cui tornare
+                    if st.session_state.last_course_list:
+                        button_text_back = "🔙 Torna alla lista dei corsi" if st.session_state.last_lang == "it" else "🔙 Back to list"
+                        if st.button(button_text_back, key=f"back_btn_{i}", use_container_width=True):
+                            # Ripristina lo stato di selezione della lista
+                            st.session_state.course_list = st.session_state.last_course_list
+                            st.session_state.waiting_for_selection = True
+                            st.session_state.current_course = None
+                            
+                            # Aggiunge un messaggio in chat per chiarezza
+                            msg_text = "Ecco di nuovo la lista dei corsi trovati." if st.session_state.last_lang == "it" else "Here is the list of found courses again."
+                            st.session_state.chat_history.append({"role": "assistant", "content": msg_text})
+                            
+                            st.rerun()
 
-# Handle course selection via buttons, placed after displaying history and before chat_input
+# Handle course selection list
 if st.session_state.waiting_for_selection and st.session_state.course_list:
-    # Use an expander for a cleaner look and to not take up too much space
-    with st.expander("Seleziona un corso per maggiori dettagli:" if st.session_state.last_lang == "it" else "Select a course for more details:", expanded=True):
-        for i, course in enumerate(st.session_state.course_list):
-            # Use the full course title for the button label
-            button_label = f"{course.get('titolo', 'No title')}"
+    with st.expander("Seleziona un corso per maggiori dettagli:", expanded=True):
+        for i, (course_data, score) in enumerate(st.session_state.course_list):
+            
+            # Estrai il titolo in modo sicuro
+            title = course_data.get('titolo', 'No title')
+            
+            # --- MODIFICA CHIAVE ---
+            # Usa solo il titolo del corso come etichetta del bottone, senza il punteggio.
+            button_label = title
+            
             if st.button(button_label, key=f"course_select_{i}", use_container_width=True):
-                # User clicked a button, which represents their selection
-                selected_course = st.session_state.course_list[i]
+                selected_course_data = course_data
                 selection_lang = st.session_state.last_lang
 
-                # Append a "user" message to the chat history to show what was selected
-                user_selection_message = f"Ho selezionato: {button_label}" if selection_lang == "it" else f"I selected: {button_label}"
+                # Messaggio per la cronologia chat
+                user_selection_message = f"Ho selezionato: {title}" if selection_lang == "it" else f"I selected: {title}"
                 st.session_state.chat_history.append({"role": "user", "content": user_selection_message})
 
-                with st.spinner("Recupero le informazioni del corso..." if selection_lang == "it" else "Fetching course information..."):
-                    start_time = time.time()
-                    # Get the detailed course information
-                    response = format_course(selected_course, selection_lang, llm=st.session_state.llm, user_query=user_selection_message)
-                    end_time = time.time()
-                    response_time = end_time - start_time
-                    
-                    # Append the detailed bot response to the chat history
-                    st.session_state.chat_history.append({"role": "assistant", "content": response, "time": response_time})
-                    
-                    # Update the state: clear selection mode, and set the current course for follow-ups
-                    st.session_state.waiting_for_selection = False
-                    st.session_state.course_list = []
-                    st.session_state.current_course = selected_course
-                    st.session_state.waiting_for_follow_up = True
-                    st.session_state.follow_up_prompt = "Ask me anything about this course (requirements, cost, duration, etc.)" if selection_lang == "en" else "Chiedimi qualsiasi cosa su questo corso (requisiti, costo, durata, ecc.)"
-                    
-                    # Rerun the app to reflect the changes immediately
-                    st.rerun()
-
-# Add course action buttons if a course is selected and we are NOT waiting for a new selection
-if st.session_state.current_course and not st.session_state.waiting_for_selection:
-    st.markdown("---")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        button_text_ask = "❓ Chiedi di questo corso" if st.session_state.last_lang == "it" else "❓ Ask about this course"
-        if st.button(button_text_ask, key="follow_up_btn", use_container_width=True):
-            # Definisci il messaggio di risposta del bot in base alla lingua
-            if st.session_state.last_lang == "it":
-                response_message = "Certo! Di quali informazioni specifiche hai bisogno? (Es: requisiti, costo, durata, programma...)"
-            else:
-                response_message = "Sure! What specific information do you need? (e.g., requirements, cost, duration, syllabus...)"
-            
-            # Aggiungi il messaggio alla cronologia della chat
-            st.session_state.chat_history.append({"role": "assistant", "content": response_message})
-            
-            # Imposta lo stato per attendere una domanda di follow-up
-            st.session_state.waiting_for_follow_up = True
-            st.session_state.follow_up_prompt = response_message # Usiamo il messaggio come prompt
-            st.rerun()
-    
-    with col2:
-        # --- MODIFICA 2: Bottone "Cerca altri corsi" ---
-        button_text_search = "🔍 Cerca altri corsi" if st.session_state.last_lang == "it" else "🔍 Search other courses"
-        if st.button(button_text_search, key="new_search_btn", use_container_width=True):
-            # Definisci il messaggio di risposta del bot in base alla lingua
-            if st.session_state.last_lang == "it":
-                response_message = "Certamente! Digita le parole chiave del corso che stai cercando."
-            else:
-                response_message = "Of course! Type the keywords for the course you are looking for."
+                with st.spinner("Recupero info..."):
+                    response = format_course(selected_course_data, selection_lang, llm=st.session_state.llm, user_query=f"info su {title}")
+                    st.session_state.chat_history.append({"role": "assistant", "content": response})
                 
-            # Aggiungi il messaggio alla cronologia della chat
-            st.session_state.chat_history.append({"role": "assistant", "content": response_message})
-
-            # Resetta lo stato per una nuova ricerca
-            st.session_state.current_course = None
-            st.session_state.waiting_for_selection = False
-            st.session_state.course_list = []
-            st.session_state.waiting_for_follow_up = False
-            st.session_state.follow_up_prompt = None
-            st.rerun()
-            
-    # Questo blocco non è più necessario qui perché il messaggio viene già inviato in chat
-    # if st.session_state.get("waiting_for_follow_up", False):
-    #     st.info(st.session_state.get("follow_up_prompt", "Ask me anything about this course!"))
+                # Resetta lo stato dopo la selezione
+                st.session_state.waiting_for_selection = False
+                st.session_state.course_list = []
+                st.session_state.current_course = selected_course_data
+                st.rerun()
 
 # Chat input
 user_input = st.chat_input("Chiedi informazioni sui corsi (IT/EN):" if st.session_state.last_lang == "it" else "Ask about courses (IT/EN):")
 
 if user_input:
-    response_time = None
     st.session_state.chat_history.append({"role": "user", "content": user_input})
-    with st.chat_message("user"):
-        st.markdown(user_input)
-
-    # Use the selected language
     lang = st.session_state.last_lang
+    response = ""
+    course_list = []
     
-    # THE ENTIRE LOGIC FOR NUMERIC/TEXT SELECTION HAS BEEN REMOVED FROM HERE.
-    # The input is now always treated as a new query or a follow-up.
-
-    # Regular query - use the selected language
-    print(f"[DEBUG] Regular query - Using selected language: {lang}")
-    
-    # Check if we have a current course and should treat this as a follow-up question
-    if st.session_state.current_course and st.session_state.waiting_for_follow_up:
-        # This is definitely a follow-up question about the current course
-        print(f"[DEBUG] Follow-up question mode - Current course: {st.session_state.current_course.get('titolo', 'No title')}")
-        response = format_course(st.session_state.current_course, lang, llm=st.session_state.llm, user_query=user_input)
-    elif st.session_state.current_course:
-        # We have a current course but not in follow-up mode - ask LLM to decide
-        follow_up_decision = get_follow_up_decision(user_input, lang, st.session_state.llm, st.session_state.current_course)
-        
-        if follow_up_decision:
-            # This is a follow-up question about the current course
-            print(f"[DEBUG] LLM detected follow-up question about current course: {st.session_state.current_course.get('titolo', 'No title')}")
+    with st.spinner("Sto pensando..."):
+        if st.session_state.current_course and st.session_state.waiting_for_follow_up:
             response = format_course(st.session_state.current_course, lang, llm=st.session_state.llm, user_query=user_input)
+            st.session_state.waiting_for_follow_up = False
+        elif st.session_state.current_course:
+            if get_follow_up_decision(user_input, lang, st.session_state.llm, st.session_state.current_course):
+                response = format_course(st.session_state.current_course, lang, llm=st.session_state.llm, user_query=user_input)
+            else:
+                response, course_list, _ = enhanced_chat(user_input, llm=st.session_state.llm, lang=lang)
         else:
-            # New search query
-            with st.spinner("🔍 Cercando informazioni..." if lang == "it" else "🔍 Searching for information..."):
-                try:
-                    # Use enhanced RAG-first approach
-                    response, course_list, response_time = enhanced_chat(user_input, llm=st.session_state.llm, lang=lang)
-                    
-                    st.session_state.last_response_time = response_time 
+            response, course_list, _ = enhanced_chat(user_input, llm=st.session_state.llm, lang=lang)
 
-                    # Check if response contains a course list (multiple courses found)
-                    if course_list and len(course_list) > 1:
-                        st.session_state.waiting_for_selection = True
-                        # Store the course list for later selection
-                        st.session_state.course_list = course_list
-                        # Clear current course when starting new search
-                        st.session_state.current_course = None
-                        st.session_state.waiting_for_follow_up = False
-                        st.session_state.follow_up_prompt = None
-                    
-                except Exception as e:
-                    response = f"Mi dispiace, si è verificato un errore: {str(e)}" if lang == "it" else f"I'm sorry, an error occurred: {str(e)}"
-                    st.session_state.waiting_for_selection = False
-                    st.session_state.course_list = []
-                    st.session_state.current_course = None
-                    st.session_state.waiting_for_follow_up = False
-                    st.session_state.follow_up_prompt = None
-    else:
-        # No current course, so this is definitely a new search
-        with st.spinner("🔍 Cercando informazioni..." if lang == "it" else "🔍 Searching for information..."):
-            try:
-                # Use enhanced RAG-first approach
-                response, course_list, response_time = enhanced_chat(user_input, llm=st.session_state.llm, lang=lang)
-                
-                # Check if response contains a course list (multiple courses found)
-                if course_list and len(course_list) > 1:
-                    st.session_state.waiting_for_selection = True
-                    # Store the course list for later selection
-                    st.session_state.course_list = course_list
-                    # Clear current course when starting new search
-                    st.session_state.current_course = None
-                    st.session_state.waiting_for_follow_up = False
-                    st.session_state.follow_up_prompt = None
-                
-            except Exception as e:
-                response = f"Mi dispiace, si è verificato un errore: {str(e)}" if lang == "it" else f"I'm sorry, an error occurred: {str(e)}"
-                st.session_state.waiting_for_selection = False
-                st.session_state.course_list = []
-                st.session_state.current_course = None
-                st.session_state.waiting_for_follow_up = False
-                st.session_state.follow_up_prompt = None
-    
-    # 1. Visualizza la risposta del bot con l'effetto "macchina da scrivere"
-    with st.chat_message("assistant"):
-        placeholder = st.empty()
-        typing_speed = 0.01
-        displayed = ""
-        for char in response:
-            displayed += char
-            placeholder.markdown(displayed)
-            time.sleep(typing_speed)
-
-    # 2. Aggiunge la risposta alla cronologia della chat
     st.session_state.chat_history.append({"role": "assistant", "content": response})
-
-    # 3. Controlla e stampa il tempo di risposta (se disponibile)
-    if response_time is not None:
-        st.caption(f"⏱️ Tempo di risposta: {response_time:.2f} secondi")
     
-    # 4. Mostra il bottone "Speak"
-    speak_text_button(response, lang=st.session_state.last_lang)
+    if course_list and len(course_list) > 1:
+        st.session_state.waiting_for_selection = True
+        st.session_state.course_list = course_list
+        st.session_state.last_course_list = course_list
+        st.session_state.current_course = None
     
-    # 5. Se la ricerca ha prodotto una lista di corsi, fa un rerun per mostrare i bottoni
-    if st.session_state.waiting_for_selection:
-        st.rerun()
-    
+    st.rerun()
