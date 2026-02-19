@@ -6,19 +6,22 @@ import numpy as np
 import faiss
 import mysql.connector
 import re
+from dotenv import load_dotenv
 
 FAISS_INDEX_PATH = "faiss_index.bin"
 COURSES_META_PATH = "courses.pkl"
+
+load_dotenv()
 
 def fetch_courses_dict():
     """Fetch courses directly from database"""
     try:
         conn = mysql.connector.connect(
-            host="smartoltre.nanoh.it",
-            port=3306,
-            user="ufficio",
-            password="2ksVkoEPF0DNrKT",
-            database="smart"
+            host=os.getenv("MYSQL_HOST"),
+            port=int(os.getenv("MYSQL_PORT", 3306)), # Converted to integer just to be safe
+            user=os.getenv("MYSQL_USER"),
+            password=os.getenv("MYSQL_PASSWORD"),
+            database=os.getenv("MYSQL_DATABASE")
         )
         cursor = conn.cursor(dictionary=True)
         
