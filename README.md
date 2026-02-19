@@ -93,8 +93,3 @@ But for most use cases, browser TTS is fast, free, and good enough.
 
 - **Browser TTS:** Fast, natural, no server-side audio generation, works instantly.
 - **gTTS:** Robotic, slow, but works everywhere (including CLI).
-
----
-
-## Would you like me to update your Streamlit app to use browser-native TTS for instant, natural speech?  
-This will make your bot sound much more human and respond instantly when you click "🔊 Speak"! 
